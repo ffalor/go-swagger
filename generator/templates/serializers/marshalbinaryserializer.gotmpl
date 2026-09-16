@@ -16,4 +16,37 @@ func ({{.ReceiverName}} *{{ pascalize .Name }}) UnmarshalBinary(b []byte) error 
   *{{ .ReceiverName }} = res
   return nil
 }
+{{- /*
+     String implements fmt.Stringer so that a value of this type prints as its
+     JSON body rather than as a pointer address.
+
+     Generated models use a pointer for every optional and every required field.
+     The fmt package does not follow a pointer whose type has no String method,
+     so a model without one prints addresses when it is formatted with %v or
+     %+v. Response Error() and String() methods format their payload that way,
+     which makes an API error unreadable.
+
+     The method is skipped when the model declares a property that pascalizes to
+     "String". Go does not permit a field and a method of the same name at the
+     same depth in one type. A promoted field is at a greater depth, so only
+     direct properties can collide.
+  */}}
+{{- $hasStringProperty := false }}
+{{- range .Properties }}{{ if eq (pascalize .Name) "String" }}{{ $hasStringProperty = true }}{{ end }}{{ end }}
+{{- range .AllOf }}{{ range .Properties }}{{ if eq (pascalize .Name) "String" }}{{ $hasStringProperty = true }}{{ end }}{{ end }}{{ end }}
+{{- if not $hasStringProperty }}
+
+// String returns the JSON body of this {{ humanize .Name }}. It implements
+// fmt.Stringer so that %v and %+v render the value instead of a pointer address.
+func ({{.ReceiverName}} *{{ pascalize .Name }}) String() string {
+  if {{ .ReceiverName }} == nil {
+    return "<nil>"
+  }
+  b, err := swag.WriteJSON({{ .ReceiverName }})
+  if err != nil {
+    return err.Error()
+  }
+  return string(b)
+}
+{{- end }}
 {{- end }}
