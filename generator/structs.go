@@ -636,6 +636,7 @@ type GenOperation struct {
 	ExternalDocs     *spec.ExternalDocumentation
 	Produces         []string // original produces for operation (for doc)
 	Consumes         []string // original consumes for operation (for doc)
+	Deprecated       bool     // operation is marked deprecated in the spec (for doc)
 }
 
 // GenOperations represents a list of operations to generate

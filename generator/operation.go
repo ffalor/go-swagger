@@ -510,6 +510,7 @@ func (b *codeGenOpBuilder) MakeOperation() (GenOperation, error) {
 
 		PrincipalIsNullable: b.GenOpts.PrincipalIsNullable(),
 		ExternalDocs:        trimExternalDoc(operation.ExternalDocs),
+		Deprecated:          operation.Deprecated,
 	}, nil
 }
 

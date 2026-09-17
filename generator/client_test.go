@@ -1105,3 +1105,46 @@ func TestGenClient_909_6(t *testing.T) {
 		}
 	}
 }
+
+func TestGenClient_DeprecatedOperation(t *testing.T) {
+	t.Parallel()
+	defer discardOutput()()
+
+	// deprecated operations must emit an idiomatic "// Deprecated:" doc comment
+	// on the generated client method, so tooling (staticcheck SA1019, gopls) flags
+	// call sites. Non-deprecated operations must not gain the comment.
+	opts := testClientGenOpts()
+	opts.Spec = filepath.Join("..", "fixtures", "enhancements", "deprecated", "fixture-deprecated.yaml")
+
+	cwd, _ := os.Getwd()
+	tft, _ := os.MkdirTemp(cwd, "generated")
+	opts.Target = tft
+
+	defer func() {
+		_ = os.RemoveAll(tft)
+	}()
+
+	err := GenerateClient("client", []string{}, []string{}, opts)
+	require.NoError(t, err)
+
+	code, err := os.ReadFile(filepath.Join(opts.Target, filepath.FromSlash("client/operations/operations_client.go")))
+	require.NoError(t, err)
+
+	fileContent := string(code)
+
+	assertInCode(t, "Deprecated: this operation has been deprecated and may be removed in a future release.", fileContent)
+
+	// the notice must appear twice for the deprecated op: once on the ClientService
+	// interface method (what interface-typed call sites reference) and once on the
+	// concrete *Client method. Only GetOldThing is deprecated, so the count is exactly 2.
+	const notice = "Deprecated: this operation has been deprecated and may be removed in a future release."
+	require.Equal(t, 2, strings.Count(fileContent, notice), "expected deprecation notice on both the interface and concrete method")
+
+	// the non-deprecated GetNewThing method must not carry a Deprecated notice
+	newThingIdx := strings.Index(fileContent, "func (a *Client) GetNewThing(")
+	require.NotEqual(t, -1, newThingIdx, "expected GetNewThing method in generated client")
+	newThingDoc := fileContent[:newThingIdx]
+	lastComment := strings.LastIndex(newThingDoc, "/*")
+	require.NotEqual(t, -1, lastComment)
+	assertNotInCode(t, "Deprecated:", newThingDoc[lastComment:])
+}
